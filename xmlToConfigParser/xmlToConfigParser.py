@@ -25,13 +25,16 @@ class xmlToConfigParser(object):
     """
 
     """
-    This method will create the directories that we want.
-    We want one directory for each component
+    This method will do the actual work.
     """
     def do(self):
         #first create the directories
         self._createDirectories(getcwd())
 
+    """
+    This method will create the directories that we want.
+    We want one directory for each component
+    """
     def _createDirectories(self, destinationPath):
         tmpPath = path.abspath(destinationPath)
 
