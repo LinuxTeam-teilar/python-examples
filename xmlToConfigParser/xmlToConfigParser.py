@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import urllib2
+import ConfigParser
 from os import path, mkdir, getcwd
 from bs4 import BeautifulSoup
 
@@ -21,9 +22,8 @@ class xmlToConfigParser(object):
                 mkdir(self.configPath)
 
         #open the xml
-        #xml = urllib2.urlopen(xml_source)
-        #in case that wifi is down
-        xml = open("/home/tsiapaliwkas/sources/github/python-examples/kde_projects.xml")
+        print 'please wait....!'
+        xml = urllib2.urlopen(xml_source)
 
         #create our soup!
         self.soup = BeautifulSoup(xml.read())
@@ -72,64 +72,122 @@ class xmlToConfigParser(object):
         for project in self.soup.find_all("project"):
             try:
                 projectPath = project.path.string.split('/')
-
-                for release in self.releases:
-                    #include only the projects for which we want their data,
-                    #those are the ones which live under the elements of self.releases
-                    if projectPath[0] == release:
-                        #the kde release is an exception
-                        if projectPath[0] == 'kde':
-                            configFilePath = self.configPath + projectPath[0] + '/' + projectPath[1] + '.cfg'
-                            open(configFilePath, 'w')
-                            self._writeIntoConfig(configFilePath, projectPath[2])
-                        else:
-                            if len(projectPath) == 4:
-                                #extragear/network/
-                                directory = self.configPath + projectPath[0] + '/' + projectPath[1] + '/'
-
-                                #create the dir
-                                if not path.exists(directory):
-                                    mkdir(directory)
-
-                                #extragear/network/telepathy.cfg
-                                configFilePath = directory + projectPath[2] + '.cfg'
-                                open(configFilePath, 'w')
-                                self._writeIntoConfig(configFilePath, projectPath[3])
-                            elif len(projectPath) == 3:
-                                #playground/base/
-                                dirPath = self.configPath + projectPath[0] + '/' + projectPath[1] + '/'
-                                if not path.exists(dirPath):
-                                    mkdir(dirPath)
-                                configFilePath = dirPath + '/' + projectPath[2] + '.cfg'
-                                open(configFilePath, 'w')
-                                self._writeIntoConfig(configFilePath, projectPath[2])
-
             except AttributeError:
-                #forget the error and go to the next item
-                pass
+                continue
 
+            for release in self.releases:
+                #include only the projects for which we want their data,
+                #those are the ones which live under the elements of self.releases
+                if projectPath[0] == release:
+                    #the kde release is an exception
+                    if projectPath[0] == 'kde':
+                        configFilePath = self.configPath + projectPath[0] + '/' + projectPath[1] + '.cfg'
+
+                        config = ConfigParser.RawConfigParser()
+                        config.add_section(projectPath[2])
+
+                        #the attribute name already exists, so we will take its value
+                        #with a different way
+                        projectName = project.find('name').string.strip()
+                        if projectName:
+                            config.set(projectPath[2], 'name', projectName)
+
+                        config.set(projectPath[2], 'web', project.web.string)
+                        config.set(projectPath[2], 'source_path', project.path.string)
+                        config.set(projectPath[2], 'git', project.repo.url.string)
+
+                        #create our config file
+                        with open(configFilePath, 'a') as f:
+                            #write the data in it!
+                            config.write(f)
+                    else:
+                        if len(projectPath) == 4:
+                            #extragear/network/
+                            directory = self.configPath + projectPath[0] + '/' + projectPath[1] + '/'
+
+                            #create the dir
+                            if not path.exists(directory):
+                                mkdir(directory)
+
+                            #extragear/network/telepathy.cfg
+                            configFilePath = directory + projectPath[2] + '.cfg'
+
+                            config = ConfigParser.RawConfigParser()
+                            config.add_section(projectPath[3])
+
+                            projectName = project.find('name').string.strip()
+                            if projectName:
+                                config.set(projectPath[3], 'name', projectName)
+
+                            config.set(projectPath[3], 'web', project.web.string)
+                            config.set(projectPath[3], 'source_path', project.path.string)
+                            config.set(projectPath[3], 'git', project.repo.url.string)
+                            #create our config file
+                            with open(configFilePath, 'a') as f:
+                                #write the data in it!
+                                config.write(f)
+                        elif len(projectPath) == 3:
+                            #playground/base/
+                            dirPath = self.configPath + projectPath[0] + '/' + projectPath[1] + '/'
+                            if not path.exists(dirPath):
+                                mkdir(dirPath)
+                            configFilePath = dirPath + projectPath[2] + '.cfg'
+
+                            config = ConfigParser.RawConfigParser()
+                            config.add_section(projectPath[2])
+
+                            projectName = project.find('name').string.encode('latin1').strip()
+                            if projectName:
+                                config.set(projectPath[2], 'name', projectName)
+
+                            config.set(projectPath[2], 'web', project.web.string)
+                            config.set(projectPath[2], 'source_path', project.path.string)
+                            config.set(projectPath[2], 'git', project.repo.url.string)
+
+                            #create our config file
+                            with open(configFilePath, 'a') as f:
+                                #write the data in it!
+                                config.write(f)
 
     def _moduleConfigFiles(self):
         for module in self.soup.find_all("module"):
             try:
                 modulePath = module.path.string.split('/')
-                for release in self.releases:
-                    if modulePath == release:
-                        moduleDir = self.configPath + modulePath[0] + '/'
-                        if not path.exists(moduleDir):
-                            mkdir(moduleDir)
-
-                        configFilePath = moduleDir + modulePath[1] + '.cfg'
-                        open(configFilePath, 'w')
-                        self._writeIntoConfig(configFilePath, modulePath[1])
             except AttributeError:
-                pass
-    """
-    :param configFilePath: the path of the config filePath
-    :type moduleName: the name of the module, like okular
-    """
-    def _writeIntoConfig(self, configFilePath, moduleName):
-        pass
+                continue
+
+            for release in self.releases:
+                if modulePath[0] == release:
+                    moduleDir = self.configPath + modulePath[0] + '/'
+                    if not path.exists(moduleDir):
+                        mkdir(moduleDir)
+
+                    #check if modulePath[1] is a dir or not.
+                    #for instance kde/kdelibs.cfg it isn't
+                    #but extragear/base/ is.
+                    configFilePath = ''
+                    moduleDir += modulePath[1]
+                    if not path.isdir(moduleDir):
+                        configFilePath = moduleDir + '.cfg'
+
+                        config = ConfigParser.RawConfigParser()
+                        config.add_section(modulePath[1])
+
+                        #the name attribute already exists
+                        moduleName = module.find('name').string.strip()
+                        if moduleName:
+                            config.set(modulePath[1], 'name', moduleName)
+
+                        config.set(modulePath[1], 'web', module.web.string)
+                        config.set(modulePath[1], 'source_path', module.path.string)
+                        try:
+                            config.set(modulePath[1], 'git', module.repo.url.string)
+                        except AttributeError:
+                            pass
+                        #create our config file
+                        with open(configFilePath, 'a') as f:
+                            #write the data in it!
+                            config.write(f)
 
 
 #this is the xml which kde-projects provided
